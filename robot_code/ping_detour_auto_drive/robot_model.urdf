@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<!--
+  robot_model.urdf  :  RViz2 "RobotModel" 표시용 차체 모델
+
+  실제 차체 : 길이(X, 전진방향) 0.23 m, 폭(Y) 0.19 m (실측 +1 cm 여유)  (path_planner_node.py 와 동일)
+
+  중요 : 링크를 base_link 하나만 두고 그 안에 visual 을 여러 개 넣었다.
+         robot_state_publisher 가 새 TF 를 만들지 않게 하기 위해서다.
+         (slam.launch.py 가 이미 base_link 에서 laser_frame, imu_link 로 가는
+          static TF 를 쏘고 있고, cartographer 가 odom 에서 base_link 를 쏜다.
+          여기서 또 부모 링크를 만들면 base_link 의 부모가 둘이 되어 TF 가 깨진다.)
+-->
+<robot name="auto_drive_bot">
+
+  <material name="ad_body"><color rgba="0.20 0.55 0.95 0.85"/></material>
+  <material name="ad_front"><color rgba="1.00 0.55 0.10 1.0"/></material>
+  <material name="ad_dark"><color rgba="0.13 0.13 0.13 1.0"/></material>
+  <material name="ad_lidar"><color rgba="0.90 0.25 0.15 1.0"/></material>
+
+  <link name="base_link">
+
+    <!-- 본체 : 0.23(길이) x 0.19(폭) x 0.05(높이) -->
+    <visual>
+      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <geometry><box size="0.23 0.19 0.05"/></geometry>
+      <material name="ad_body"/>
+    </visual>
+
+    <!-- 앞쪽 표시 (진행 방향 +X) -->
+    <visual>
+      <origin xyz="0.103 0 0.025" rpy="0 0 0"/>
+      <geometry><box size="0.014 0.19 0.052"/></geometry>
+      <material name="ad_front"/>
+    </visual>
+
+    <!-- 좌/우 바퀴 : 폭 0.18 의 양 끝 -->
+    <visual>
+      <origin xyz="0 0.09 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.03" length="0.018"/></geometry>
+      <material name="ad_dark"/>
+    </visual>
+    <visual>
+      <origin xyz="0 -0.09 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.03" length="0.018"/></geometry>
+      <material name="ad_dark"/>
+    </visual>
+
+    <!-- 뒤쪽 캐스터 -->
+    <visual>
+      <origin xyz="-0.085 0 -0.018" rpy="0 0 0"/>
+      <geometry><sphere radius="0.012"/></geometry>
+      <material name="ad_dark"/>
+    </visual>
+
+    <!-- 라이다 : slam.launch.py 의 static TF(base_link->laser_frame, z=0.1) 위치 -->
+    <visual>
+      <origin xyz="0 0 0.095" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.021" length="0.03"/></geometry>
+      <material name="ad_lidar"/>
+    </visual>
+
+  </link>
+
+</robot>
