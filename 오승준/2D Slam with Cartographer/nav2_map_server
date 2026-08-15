@@ -1,0 +1,51 @@
+1. nav2_map_server란?
+
+ROS2 Nav2 스택에 포함된 패키지로, 크게 두 가지 기능을 담당합니다.
+
+기능	담당 노드/도구
+맵 파일 → ROS2 토픽으로 발행	map_server 노드
+SLAM으로 만든 맵 → 파일로 저장	map_saver_cli
+map_server 노드
+.yaml + .pgm 파일을 읽어서 /map 토픽(nav_msgs/OccupancyGrid 메시지 타입)으로 계속 발행하는 역할
+lifecycle node라서 그냥 실행만 하면 unconfigured 상태로 대기 → configure → activate 순서로 상태를 전이시켜야 실제로 /map을 발행하기 시작함 (지금까지 run_map_test.sh에서 했던 그 과정)
+이렇게 발행된 /map을 rviz2가 구독해서 화면에 그려주는 것
+map_saver_cli
+반대 방향: SLAM(Cartographer, SLAM Toolbox 등)이 실시간으로 만들고 있는 /map 토픽을 스냅샷 찍어서 .pgm + .yaml 파일로 저장
+지금까지 SeungJun님이 SLAM 작업하실 때 쓰신 그 명령어입니다.
+
+
+2. .pgm 파일의 의미
+
+PGM (Portable GrayMap) — 단순한 흑백 이미지 포맷입니다. 특별한 게 아니라 그냥 그레이스케일 이미지 파일 형식이고, ROS 맵에서는 픽셀 값에 다음과 같은 약속된 의미를 부여합니다.
+
+픽셀 값	의미
+254 (밝음/흰색)	free — 로봇이 지나갈 수 있는 빈 공간
+0 (어두움/검은색)	occupied — 벽/장애물
+205 (회색)	unknown — 아직 스캔 안 된 미지 영역
+
+
+3. .yaml 파일의 의미
+
+pgm 이미지를 실제 물리 공간과 연결시켜주는 메타데이터입니다.
+
+yaml
+image: map_baseline.pgm
+resolution: 0.05
+origin: [0.0, 0.0, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+
+키	의미
+image	이 설정이 가리키는 실제 pgm 이미지 파일명
+resolution	픽셀 1개 = 실제 몇 미터인지 (m/px). 이게 있어야 픽셀 좌표 ↔ 실제 로봇 좌표 변환 가능
+origin: [x, y, yaw]	이미지의 좌하단 픽셀이 world 좌표계 기준 어디에 위치하는지 (+ 회전각). 로봇의 실제 위치와 지도를 정렬시키는 기준점
+negate	픽셀 밝기 해석 방향. 0이면 "밝을수록 free"(표준), 1이면 반전
+occupied_thresh	픽셀 값을 0~1로 정규화했을 때, 이 값 이상이면 점유(벽)로 판정
+free_thresh	이 값 이하면 free로 판정 (그 사이는 unknown 처리)
+
+
+4. 왜 두 파일이 항상 세트인가
+pgm = "어디가 벽이고 어디가 빈 공간인지"를 담은 그림
+yaml = 그 그림을 "실제 세계의 몇 m 스케일, 어느 위치에 놓을지" 알려주는 좌표계 설명서
+

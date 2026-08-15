@@ -1,0 +1,45 @@
+Cartographer 아키텍처 vs 실제 구성 매핑
+
+Input Sensor Data (4개 중 3개만 사용)
+다이어그램 박스	실제 사용 여부	대응 파일/노드
+Range Data (Laser scan)	✅ 사용	ydlidar_ros2_driver_node → /scan
+IMU Data	✅ 사용	imu_filter_node.py → /imu (바이어스 보정 + 중위값 필터 적용된 값)
+Fixed Frame Pose	✅ 사용	static_tf_base_to_laser, static_tf_base_to_imu (정적 TF)
+Odometry Pose	❌ 미사용	인코더 없음 → 이 입력 자체가 없음
+Local SLAM (cartographer_node 내부)
+
+
+다이어그램 박스	대응
+Voxel Filter / Adaptive Voxel Filter	my_robot.lua 설정값 (voxel_filter_size, adaptive_voxel_filter 관련 파라미터) — 스캔 포인트 다운샘플링
+
+ImuTracker (gravity alignment)	/imu 입력을 받아 중력 방향 정렬 — use_imu_data: true 이므로 활성화
+
+PoseExtrapolator	원래는 Odometry + IMU + 이전 스캔매칭 결과를 조합하는데, Odometry가 없으므로 IMU + 스캔매칭 결과만으로 pose 예측 (이 부분이 인코더 없는 구성에서 가장 정확도가 떨어지기 쉬운 지점)
+
+Scan Matching (ceres)	/scan → cartographer_node의 실제 스캔매칭 연산, my_robot.lua의 ceres_scan_matcher 파라미터로 튜닝
+
+Motion Filter Still	my_robot.lua의 motion_filter 관련 threshold — 정지 상태 판단 시 서브맵 업데이트 skip
+
+Submaps / Voxel Grid Update	Cartographer 내부 처리, map_resolution 파라미터(서브맵 격자 1cm)와 연동
+
+InsertionResult	내부 처리 결과, 아래 Global SLAM으로 전달됨
+
+
+
+Global SLAM (백그라운드 스레드)
+
+다이어그램 박스	대응
+Compute Constraints (루프클로저)	my_robot.lua의 POSE_GRAPH.constraint_builder 관련 파라미터
+
+Sparse Pose Adjustment	전역 최적화, 별도 설정 파일 조정 없이 기본 사용 중이면 POSE_GRAPH.optimize_every_n_nodes 등 기본값
+
+Extrapolate all poses	최종 map → odom → base_link TF로 출력 (provide_odom_frame: true 이므로 Cartographer가 odom 프레임까지 직접 발행)
+
+
+
+
+
+최종 출력
+
+다이어그램 상 미표시 (후처리)	대응
+서브맵 → 격자맵 변환	occupancy_grid_node → /map (다이어그램엔 없지만 실제 파이프라인에서 뒤에 붙는 노드)

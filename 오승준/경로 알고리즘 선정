@@ -1,0 +1,27 @@
+1. 전역 경로 계획 (Global Planner) — 지도 위에서 최적 경로 탐색
+알고리즘            특징
+Dijkstra            모든 노드까지의 최단 거리를 보장, 하지만 목적지 방향 정보를 안 써서 느림
+A*                  Dijkstra + 휴리스틱(목적지 방향 우선 탐색) → 실무에서 가장 널리 쓰임
+D* / D* Lite        동적 환경에서 재계획(replanning)에 최적화, A*보다 재탐색 비용이 적음
+RRT / RRT*          샘플링 기반, 고차원(매니퓰레이터, 복잡한 지형)에 강함, 완전 최적은 아니지만 넓은 공간에서 빠름
+PRM (Probabilistic Roadmap) 미리 그래프를 구성해두고 탐색, 정적 환경 반복 주행에 적합
+
+
+2. 지역 경로 계획 (Local Planner) — 실시간 장애물 회피
+알고리즘                            특징
+DWA (Dynamic Window Approach)   로봇의 속도/가속도 제약을 고려해 다음 순간의 최적 속도 명령 산출. ROS1/2에서 가장 기본값
+TEB (Timed Elastic Band)        경로를 시간-탄성 밴드로 표현해 최적화, 좁은 통로·회전 반경 제약이 있는 로봇에 강함. 최근 Nav2에서 기본값처럼 많이 씀
+MPC (Model Predictive Control)  모델 기반으로 미래 상태를 예측하며 최적 제어입력 계산, 정밀 제어에 강하지만 연산량 높음
+VFH (Vector Field Histogram)    장애물 밀도를 히스토그램화해 회피, 구조 단순하지만 최신 스택에서는 잘 안 씀
+요즘 실무에서 가장 많이 쓰는 조합
+
+
+ROS2 Nav2 스택 기준으로 사실상 표준처럼 굳어진 조합은:
+Global: A* (NavFn 또는 Smac Planner 2D/Hybrid-A*) — 대부분의 실내 로봇은 이거면 충분
+Local: DWB (DWA의 ROS2 버전) 또는 TEB — 최근엔 회전 반경 제약이 있거나 더 부드러운 궤적이 필요하면 TEB 선호도가 높아지는 추세
+
+SeungJun님 환경(Jetson Orin Nano, YDLIDAR X4-PRO, 방 하나 크기, ROS2 Humble)엔 뭐가 맞을까
+Global: A* — 방 하나 크기의 정적 격자맵에서는 A면 충분하고, 계산량이 가벼워 Orin Nano에서도 부담 없습니다. D Lite는 동적 장애물이 자주 바뀌는 창고형 환경에는 유리하지만, 방 하나 스케일에선 이득이 크지 않습니다.
+Local: DWB(DWA) — 차동구동(differential drive) 로봇이고 저속(100rpm급) 주행이라면 DWB만으로도 충분히 안정적입니다. 다만 회전 시 로봇이 자꾸 좁은 통로에서 걸리거나 경로가 뚝뚝 끊기듯 움직인다면 TEB로 바꾸는 게 훨씬 부드럽습니다.
+
+즉 A + DWB(또는 TEB)* 조합이 지금 하드웨어 스펙과 스케일에는 가장 현실적이고, 이미 SLAM Toolbox나 Cartographer로 만든 occupancy grid map을 그대로 Nav2의 costmap에 넣으면 별도 통합 작업 없이 바로 쓸 수 있다는 것도 장점입니다.

@@ -1,0 +1,64 @@
+[구조]
+1	ydlidar_ros2_driver_node(라이다)
+
+2	imu_filter(imu)	
+3	imu_publisher(imu)
+	
+4	static_tf_base_to_laser(tf)
+5	static_tf_base_to_imu(tf)	
+
+6	cartographer_node(carto)
+7	occupancy_grid_node(carto)
+
+8	rviz2	
+
+
+
+[각 노드 기능 정리]
+라이다
+
+1. ydlidar_ros2_driver_node
+
+YDLIDAR X4-PRO 하드웨어와 시리얼(/dev/ttyUSB0)로 통신
+레이저 스캔 데이터를 읽어 sensor_msgs/LaserScan 메시지로 변환 → /scan 토픽 발행
+ydlidar.yaml 설정(샘플레이트, 채널 등) 적용
+IMU (둘 중 하나만 실행, 상호배타)
+
+2. imu_filter (slam_bringup 자체 구현)
+
+MPU6050 raw 데이터를 읽어 sensor_msgs/Imu로 변환 → /imu 발행
+추가 처리: 바이어스 보정, 중위값 필터(median_window)로 노이즈 제거
+cmd_vel 토픽을 감시해서 로봇이 정지 중이면 각속도를 강제로 0 처리 → 드리프트(오차 누적) 차단
+gyro_motion_threshold 이상 실제 회전이 감지되면 정지 판정을 무시(수동으로 밀 때 오차 방지)
+
+3. imu_publisher (원본 폴백 노드)
+
+필터링 없는 기본 IMU 퍼블리셔, 비교/디버깅용
+TF (좌표 변환)
+
+4. static_tf_base_to_laser
+
+base_link → laser_frame 고정 변환 발행 (z=0.1m, roll=180° — 라이다가 뒤집혀 장착됨을 보정)
+
+5. static_tf_base_to_imu
+
+base_link → imu_link 고정 변환 발행 (z=0.05m)
+Cartographer (SLAM 코어)
+
+6. cartographer_node
+
+/scan, /imu와 TF를 입력받아 실제 SLAM 알고리즘 수행(스캔 매칭, 루프 클로저)
+map → odom → base_link TF 트리 발행 (인코더 없이 라이다+IMU만으로 자기 위치 추정)
+my_robot.lua 설정 사용 (use_odometry: false, use_imu_data: true, provide_odom_frame: true)
+
+7. occupancy_grid_node
+
+cartographer가 내부적으로 만드는 서브맵(submap) 데이터를 구독
+사람이 볼 수 있는 격자맵(nav_msgs/OccupancyGrid)으로 변환 → /map 발행
+map_resolution(격자 크기), map_publish_period(발행 주기) 조절 가능
+시각화
+
+8. rviz2
+
+/scan, /map, TF를 실시간 3D로 시각화하는 GUI 도구
+SLAM 로직 자체와는 무관, 순수 모니터링/디버깅용

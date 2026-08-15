@@ -1,0 +1,85 @@
+[참고 논문]
+
+논문 1 : https://www.semanticscholar.org/paper/Performance-comparison-of-2D-SLAM-techniques-in-ROS-Rojas-Fernandez-M%C3%BAjica-Vargas/cec9f7db7fd3e94cca845c7db5049760b962270d#:~:text=This%20work%20attempts%20to%20compare%20the%20two,References.%20Filters.%20Sort%20by%20Relevance.%201%20Excerpt.
+
+논문 2 : https://dergipark.org.tr/en/download/article-file/4584899#:~:text=Our%20study%20builds%20on%20this%20body%20of,updated%20insights%20for%20researchers%20and%20practitioners.%20%7B%22isScientific%22%3Atrue%2C%22citationCount%22%3A0%2C%22authors%22%3A%5B%5D%2C%22doi%22%3A%22%22%2C%22issuedYear%22%3A0%2C%22publisher%22%3A%22%22%2C%22containerTitle%22%3A%22%22%2C%22title%22%3A%22%22%2C%22page%22%3A%22%22%2C%22volume%22%3A%22%22%2C%22abstract%22%3A%22%22%7D
+
+논문 3 : https://me336.ancorasir.com/wp-content/uploads/2023/06/Team7-Report.pdf#:~:text=Our%20work%20can%20be%20divided%20into%20two,Hector%2C%20and%20Cartographer%20in%20the%20simulation%20environment.
+
+
+
+[요약 정리]
+
+🚀 Cartographer: 뛰어난 속도와 가벼운 자원 소모
+자원 및 속도 최적화: 실전 환경에서 연산 속도가 'Fast'로 분류되며, 초기 구동 속도가 3.2초로 매우 신속합니다. CPU 사용률(72.3%)과 RAM 점유율(560MB)이 낮아 오린 보드의 컴퓨팅 자원을 아끼면서 다른 상위 노드(인지, 판단)를 동시에 구동하기에 가장 유리합니다.  
+좁은 공간에서의 한계: 장애물이 빽빽한 좁은 방(Room-1) 환경에서는 이미지 구조적 유사도(SSIM)가 0.53으로 다소 떨어집니다. 로봇 이동 속도가 빨라지면 맵핑 실패(Failure) 가능성이 존재하므로 속도 제어가 필요합니다.  
+
+📦 Gmapping: 거칠지만 신속하고 안정적인 주행 범용성
+속도 제약 최소화: Hector나 Cartographer와 달리 로봇의 이동 속도 증폭에 따른 맵핑 실패가 없어, 좁은 방 안에서 로봇을 빠르게 회전시키거나 주행하더라도 맵이 터지지 않고 끝까지 완주할 수 있습니다.  
+공간 표현력: 정밀한 표현력은 다소 떨어져 맵이 거칠게 생성되지만, 복잡하고 좁은 환경에서도 평균 이상의 구조 유사성(SSIM 0.63)을 안정적으로 제공합니다.  
+
+🛠️ SLAM Toolbox: 정밀도는 최상이지만 무거운 연산 부하
+최고의 정확도: 좁고 복잡한 방(Room-1)에서 SSIM 0.66으로 가장 정확하고 정밀한 지도를 그려냅니다.  
+상황적 부적합성: 실전 환경에서 초기 스타트업이 7.4초로 느리고, 맵 생성 속도 자체도 'Slower' 부류에 속합니다. 무엇보다 CPU 사용률이 81.9%, RAM 점유율이 793MB로 넷 중 가장 무겁기 때문에, 소형 오린 카 환경에서 실시간으로 '빠르게 맵을 빼내야 하는' 요구조건에는 오버스펙이자 병목을 유발할 수 있습니다.  
+
+🎯 Hector SLAM: 오도메트리가 없을 때만 유용한 조건부 알고리즘
+저속에서의 강력함: 로봇이 천천히 움직일 때는 에러율(RMSE 0.2174)이 낮고 매우 정밀하게 동작합니다.  
+치명적 단점: 주행 속도가 조금만 빨라져도 즉시 지도가 깨지며 맵핑에 실패하므로, '빠르게 지도를 완성해야 하는' 타임어택 상황에는 부적합합니다.  
+
+
+
+
+
+[ 최종 결론 ]
+
+프롬프트 : Gmapping, cartographer, Hector slam, Slam toolbox 중 작은 오린카로 방하나 정도를 100rpm 최대속도로 이동할 수 하며 가장 빠르게 맵 생성을 하면 좋은 조건으로 가장 적합한 알고리즘을 추천해줘. 이때 해당 논문 3개를 토대로 분석해서 알려줘
+
+
+왜 Cartographer인가
+1) 저속 주행에서는 정확도가 오히려 좋음 (Wang et al. 논문)
+Cartographer는 고속(0.4m/s 이상)에서는 매핑 실패가 나올 정도로 취약하지만, 저속 구간(0.1~0.2mps)에서는 Gmapping보다 RMSE가 더 낮았습니다 (Cartographer 0.2264~0.2494 vs Gmapping 0.3742~0.4219). 즉 "느린 로봇 + 저속 주행"이라는 조건에서는 Cartographer의 약점(고속 드리프트)이 애초에 발동하지 않고, 오히려 장점(정밀한 스캔매칭)이 살아납니다.
+2) 실제 로봇(임베디드 환경)에서 맵 생성 속도와 리소스 효율이 더 좋음 (İnce et al. 논문)
+
+실제 하드웨어 테스트(Table 7)에서 Cartographer가 Mapping Speed "Fast", SLAM Toolbox는 **"Slower"**로 나타남
+CPU 사용률: Cartographer 72.3% vs Toolbox 81.9% (실제 로봇 기준 Cartographer가 더 가벼움)
+RAM: Cartographer 560MB vs Toolbox 793MB — Jetson Orin Nano처럼 메모리가 제한된 보드에서 특히 중요한 차이
+시작 시간도 Cartographer가 3.2초로 Toolbox(7.4초)보다 훨씬 빠름
+
+이 논문은 시뮬레이션에서는 반대로 SLAM Toolbox가 더 빠르고 가벼웠다고 보고하는데, 이는 노이즈 없는 시뮬레이션 환경 특유의 결과이고 (Cartographer는 실제 센서 노이즈에 의존하는 scan-matching 구조라 노이즈 없는 환경에서 오히려 불리해짐), 논문 저자들도 실환경(real-world)에서는 Cartographer가 우세하다고 명시하고 있습니다. 실제 하드웨어에서 돌리는 상황과 더 맞는 데이터입니다.
+주의할 점 (Sildir & Erhan 논문 기반)
+작은 방 + 장애물이 많은 환경이라면 얘기가 다소 달라집니다. 이 논문의 SSIM 비교에서는:
+
+Room-1 (좁고 장애물 밀집): Gmapping 0.63, Cartographer 0.53 (최저), SLAM Toolbox 0.66
+평균: Gmapping 0.64, Cartographer 0.62, SLAM Toolbox 0.67 (최고)
+
+즉 장애물이 빽빽한 좁은 방이라면 Cartographer의 지도 품질(SSIM)이 셋 중 가장 낮게 나온 사례가 있습니다. "빠른 맵 생성" 자체가 최우선 조건이면 Cartographer, 장애물이 많아 지도 정확도가 더 중요하면 SLAM Toolbox가 낫다는 트레이드오프가 있습니다.
+정리
+조건추천방이 비교적 단순, 저속 주행, 맵 생성 속도/리소스 효율 우선Cartographer방에 장애물이 많고 정확도가 더 중요SLAM Toolbox고속 주행이 필요하거나 안정성(실패 없음)이 최우선GmappingHector SLAM세 논문 중 실사용 벤치마크 데이터가 가장 적어 Orin 환경 추천 근거 약함 (저속에서 정확도는 좋지만 IMU/고성능 라이다 의존도가 높고 고속에서 쉽게 실패)
+
+
+
+<Cartographer에서 센서 데이터 흐름>
+
+Encoder
+     │
+     ▼
+Odometry
+     │
+     ├──────────────┐
+     │              │
+IMU ─┘              │
+                    ▼
+              Cartographer
+                    ▲
+                    │
+                 LiDAR Scan
+                    │
+                    ▼
+      Scan Matching
+                    │
+      Pose Graph
+                    │
+      Loop Closure
+                    │
+                    ▼
+      Map + 현재 위치
